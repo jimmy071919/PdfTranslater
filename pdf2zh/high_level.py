@@ -135,7 +135,9 @@ def translate_patch(
             # kdtree 是不可能 kdtree 的，不如直接渲染成图片，用空间换时间
             box = np.ones((pix.height, pix.width))
             h, w = box.shape
-            vcls = ["abandon", "figure", "table", "isolate_formula", "formula_caption"]
+            # Only exclude content that cannot be safely reflowed.  Excluding
+            # tables, captions, and abandoned regions makes mono PDFs blank.
+            vcls = ["figure", "isolate_formula"]
             for i, d in enumerate(page_layout.boxes):
                 if page_layout.names[int(d.cls)] not in vcls:
                     x0, y0, x1, y1 = d.xyxy.squeeze()

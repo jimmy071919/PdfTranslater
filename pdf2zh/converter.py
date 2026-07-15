@@ -451,7 +451,7 @@ class TranslateConverter(PDFConverterEx):
                             "lidx": lidx
                         })
                         cstk = ""
-                if brk and x + adv > x1 + 0.1 * size:  # 到达右边界且原文段落存在换行
+                if x + adv > x1 + 0.1 * size:
                     x = x0
                     lidx += 1
                 if vy_regex:  # 插入公式

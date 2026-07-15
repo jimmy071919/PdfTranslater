@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+from pathlib import Path
 from typing import Any
 
 # v1 service name → v2 CLI engine flag (lowercase)
@@ -113,7 +114,7 @@ def request_to_cli_args(request: Any) -> list[str]:
 
     # Positional: files
     for f in data.get("files", []):
-        args.append(f)
+        args.append(str(Path(f).resolve()))
 
     if data.get("lang_in"):
         args.extend(["--lang-in", data["lang_in"]])
@@ -130,8 +131,6 @@ def request_to_cli_args(request: Any) -> list[str]:
 
     # Always resolve output to an absolute path to avoid cwd confusion
     # in the subprocess.  Default to input file's parent dir (v1 behavior).
-    from pathlib import Path
-
     output = data.get("output", "")
     if not output and data.get("files"):
         output = str(Path(data["files"][0]).resolve().parent)

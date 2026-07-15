@@ -2,7 +2,6 @@ import asyncio
 import cgi
 import os
 import shutil
-import socket
 import uuid
 from asyncio import CancelledError
 from pathlib import Path
@@ -309,9 +308,7 @@ def translate_file(
     lang_from = lang_map[lang_from]
     lang_to = lang_map[lang_to]
 
-    _envs = {}
-    for i, env in enumerate(translator.envs.items()):
-        _envs[env[0]] = envs[i]
+    _envs = dict(zip(translator.envs, envs))
     for k, v in _envs.items():
         if str(k).upper().endswith("API_KEY") and str(v) == "***":
             # Load Real API_KEYs from local configure file
@@ -604,7 +601,10 @@ with gr.Blocks(
                 value=enabled_services[0],
             )
             envs = []
-            for i in range(3):
+            env_count = max(
+                len(translator.envs) for translator in service_map.values()
+            )
+            for i in range(env_count):
                 envs.append(
                     gr.Textbox(
                         visible=False,
@@ -659,12 +659,11 @@ with gr.Blocks(
                     value="fast",
                     interactive=True,
                 )
-                envs.append(prompt)
 
             def on_select_service(service, evt: gr.EventData):
                 translator = service_map[service]
                 _envs = []
-                for i in range(4):
+                for i in range(len(envs)):
                     _envs.append(gr.update(visible=False, value=""))
                 for i, env in enumerate(translator.envs.items()):
                     label = env[0]
@@ -687,8 +686,7 @@ with gr.Blocks(
                         label=label,
                         value=value,
                     )
-                _envs[-1] = gr.update(visible=translator.CustomPrompt)
-                return _envs
+                return _envs + [gr.update(visible=translator.CustomPrompt)]
 
             def on_select_filetype(file_type):
                 return (
@@ -727,7 +725,7 @@ with gr.Blocks(
             service.select(
                 on_select_service,
                 service,
-                envs,
+                [*envs, prompt],
             )
             vfont.change(on_vfont_change, inputs=vfont, outputs=None)
             file_type.select(
@@ -846,16 +844,6 @@ def parse_user_passwd(file_path: str) -> tuple:
     return tuple_list, content
 
 
-def _has_ipv6() -> bool:
-    """Check whether the system can bind an IPv6 socket."""
-    try:
-        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-        sock.close()
-        return True
-    except OSError:
-        return False
-
-
 def setup_gui(
     share: bool = False, auth_file: list = ["", ""], server_port=7860
 ) -> None:
@@ -876,40 +864,14 @@ def setup_gui(
         auth_kwargs = {"auth": user_list, "auth_message": html}
 
     if flag_demo:
-        demo.launch(server_name="0.0.0.0", max_file_size="5mb", inbrowser=True)
+        demo.launch(server_name="127.0.0.1", max_file_size="5mb", inbrowser=True)
         return
 
-    # Try binding addresses in order: "::" accepts both IPv4+IPv6 on most
-    # dual-stack systems, "0.0.0.0" is IPv4-only, "127.0.0.1" is loopback,
-    # and finally fall back to Gradio's share mode.
-    bind_addresses = []
-    if _has_ipv6():
-        bind_addresses.append("[::]")
-    bind_addresses.append("0.0.0.0")
-    bind_addresses.append("127.0.0.1")
-
-    for addr in bind_addresses:
-        try:
-            demo.launch(
-                server_name=addr,
-                debug=True,
-                inbrowser=True,
-                share=share,
-                server_port=server_port,
-                **auth_kwargs,
-            )
-            return
-        except Exception:
-            print(
-                f"Error launching GUI using {addr}.\n"
-                "This may be caused by global mode of proxy software."
-            )
-
-    # Last resort: let Gradio create a share link
     demo.launch(
+        server_name="127.0.0.1",
         debug=True,
         inbrowser=True,
-        share=True,
+        share=share,
         server_port=server_port,
         **auth_kwargs,
     )
